@@ -1,0 +1,14 @@
+group 'com.isaac.ch01'
+apply plugin: 'java'
+
+task copyDependencies(type: Copy) {
+    from configurations.compile
+    into 'build/libs'
+}
+
+dependencies {
+    compileOnly misc.lombok
+    annotationProcessor misc.lombok
+    testAnnotationProcessor misc.lombok
+    testCompileOnly misc.lombok
+}
