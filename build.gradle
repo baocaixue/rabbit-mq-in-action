@@ -8,10 +8,21 @@
 ext {
     //version
     lombokVersion = '1.18.8'
+    rabbitMQVersion = '4.2.1'
+
+    //log
+    slf4jVersion = '1.7.25'
+    logbackVersion = '1.2.3'
 
     //libs
     misc = [
-        lombok : "org.projectlombok:lombok:$lombokVersion"
+        lombok : "org.projectlombok:lombok:$lombokVersion",
+        slf4jJcl       : "org.slf4j:jcl-over-slf4j:$slf4jVersion",
+        logback        : "ch.qos.logback:logback-classic:$logbackVersion"
+    ]
+
+    mq = [
+        amqpClient : "com.rabbitmq:amqp-client:$rabbitMQVersion"
     ]
 }
 
