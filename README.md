@@ -6,7 +6,7 @@
 
 # 目录
 - RabbitMQ简介...................................................[1](./introduction/README.md)
-- RabbitMQ入门
+- RabbitMQ入门...................................................[2](./start/README.md)
 - 客户端开发
 - RabbitMQ进阶
 - RabbitMQ管理

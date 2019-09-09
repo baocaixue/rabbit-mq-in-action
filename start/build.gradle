@@ -1,0 +1,15 @@
+group 'com.isaac.ch02'
+apply plugin: 'java'
+
+task copyDependencies(type: Copy) {
+    from configurations.compile
+    into 'build/libs'
+}
+
+dependencies {
+    compile mq.amqpClient,misc.slf4jJcl,misc.logback
+    compileOnly misc.lombok
+    annotationProcessor misc.lombok
+    testAnnotationProcessor misc.lombok
+    testCompileOnly misc.lombok
+}
