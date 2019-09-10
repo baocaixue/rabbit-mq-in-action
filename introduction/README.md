@@ -44,13 +44,31 @@
 * 插件机制：`>rabbitmq-plugins enable  rabbitmq_management`
 
 ***  
-##  Use-RabbitMQ  
+##  Use-RabbitMQ   
+https://www.rabbitmq.com/install-rpm.html .  
 
 ### Install-Erlang  
+Follow the steps in the [EPEL FAQ](https://fedoraproject.org/wiki/EPEL/FAQ#howtouse) to enable EPEL on the target machine . 
 
-### Install-RabbitMQ
+`su -c 'rpm -Uvh https://download.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm'`   
+`sudo yum install erlang`
 
-### Run-RabbitMQ  
+### Install-RabbitMQ   
+quick install: `curl -s https://packagecloud.io/install/repositories/rabbitmq/rabbitmq-server/script.rpm.sh | sudo bash` .  
+
+`wget https://www.rabbitmq.com/releases/rabbitmq-server/v3.6.10/rabbitmq-server-3.6.10-1.el7.noarch.rpm` . 
+`yum install rabbitmq-server-3.6.10-1.el7.noarch.rpm` . 
+
+### Run-RabbitMQ   
+`service rabbitmq-server start`    
+开放端口：  
+```bash
+firewall-cmd --zone=public --add-port=5672/tcp --permanent
+firewall-cmd --zone=public --add-port=15672/tcp --permanent
+firewall-cmd --reload
+```   
+管理页面插件：  
+`rabbitmq-plugins enable rabbitmq_management`
 
 ### Produce-Consume-Message
 
