@@ -46,13 +46,44 @@
 
 
 ### Exchange-Type   
-&nbsp;&nbsp;RabbitMQ常用的交换器类型有 fanout、 direct、 topic、 headers这四种。AMQP协议里还提到另外两种类型：System和自定义，这里不予描述。  
-&nbsp;&nbsp;**fanout**  
-&nbsp;&nbsp;它会把所有发送到该交换器的消息路由到所有与该交换器绑定的队列中。 
-&nbsp;&nbsp;**direct**  
-&nbsp;&nbsp;direct类型的交换器会把消息路由到那些BindingKey和RoutingKey完全匹配的队列中。  
-&nbsp;&nbsp;**topic**  
+&nbsp;&nbsp;RabbitMQ常用的交换器类型有 fanout、 direct、 topic、 headers这四种。AMQP协议里还提到另外两种类型：System和自定义，这里不予描述。    
+&nbsp;&nbsp;**fanout**    
+&nbsp;&nbsp;它会把所有发送到该交换器的消息路由到所有与该交换器绑定的队列中。   
+&nbsp;&nbsp;**direct**    
+&nbsp;&nbsp;direct类型的交换器会把消息路由到那些BindingKey和RoutingKey完全匹配的队列中。     
+&nbsp;&nbsp;**topic**   
 &nbsp;&nbsp;topic类型的交换器，在匹配规则上做了扩展，它与direct类型的交换器类似，也是消息路由到BindingKey和RoutingKey相匹配的队列中，但匹配规则有些不同，它约定：  
 &nbsp;&nbsp; * RoutingKey为一个点号“.”分隔的字符串，如“com.rabbitmq.client”、“java.util.concurrent”、“com.hidden.client”；  
 &nbsp;&nbsp; * BindingKey和RoutingKey一样也是点号分隔的字符串；  
-&nbsp;&nbsp; * BindingKey中可以存在两种特殊的字符串“\*”和“#”，用于做模糊匹配，其中“\*”用于匹配一个单词，“#”用于匹配多规则单词（可以是零个）。  
+&nbsp;&nbsp; * BindingKey中可以存在两种特殊的字符串“\*”和“#”，用于做模糊匹配，其中“\*”用于匹配一个单词，“#”用于匹配多规则单词（可以是零个）。    
+&nbsp;&nbsp;**headers**   
+&nbsp;&nbsp;headers类型的交换器不依赖于路由键的匹配规则来路由消息，而是根据发送的消息内容中headers属性进行匹配。在绑定队列和交换器时制定一组键值对，当发送消息到交换器时，RabbitMQ会获取到该消息的headers（也是一个键值对形式），对比其中的键值对是否完全匹配队列和交换器绑定时指定的键值对，如果完全匹配则消息会路由到该队列，否则不会路由到该队列。headers类型的交换器性能会很差，而且也不实用，基本上不会看到它的存在。     
+
+
+### Flow    
+&nbsp;&nbsp;回顾整个消息队列的使用过程。在最初状态下，生产者发送消息的时候：  
+（1） 生产者连接到RabbitMQ Broker，建立一个连接（Connection），开启一个信道（Channel）；    
+（2） 生产者声明一个交换器，并设置相关属性，如交换器类型、是否持久化等；  
+（3） 生产者声明一个队列并设置相关属性，如是否排他、是否持久化、是否自动删除等；    
+（4） 生产者通过路由键将交换器和队列绑定起来；     
+（5） 生产者发送消息到RabbitMQ Broker，其中包含路由键、交换器等信息；    
+（6） 相应的交换器根据接收到的路由键查找相匹配的队列；    
+（7） 如果找到，则将从生产者发送过来的消息存入相应的队列中；    
+（8） 如果没有找到，则根据生产者配置的属性选择丢弃还是回退给生产者；    
+（9） 关闭资源（信道、连接）。     
+&nbsp;&nbsp;消费者接收消息的过程：    
+（1） 消费者连接到RabbitMQ Broker，建立一个连接（Connection），开启一个信道（Channel）；    
+（2） 消费者向RabbitMQ Broker请求消费相应队列中的消息，可能会设置相应的回调函数，以及做一些准备工作；    
+（3） 等待RabbitMQ Broker回应并投递相应队列中的消息，消费者接收消息；    
+（4） 消费者确认（ack）接收到的消息；   
+（5） RabbitMQ从队列中删除相应的已经被确认的消息；  
+（6） 关闭资源（信道、连接）。    
+
+&nbsp;&nbsp;这里引入了两个概念：**Connection** 和 **Channel** 。无论是生产者还是消费者，都需要和RabbitMQ Broker建立连接，这个连接就是一条TCP连接，也就是Connection。一旦TCP连接建立起来，客户端紧接着可以创建AMQP信道（Channel），每个信道都会被指派一个唯一的ID。信道是建立在Connection之上的虚拟连接，RabbitMQ处理每条AMQP指令都是通过信道完成的。     
+&nbsp;&nbsp;我们完全可以直接使用Connection就能完成信道的工作，为什么还要引入信道呢？试想这样一个场景，一个应用程序中有很多个线程要从RabbitMQ中消费消息，或者生产消息，那么必然需要建立很多个Connection，也就是多个TCP连接。然而对操作系统而言，建立和销毁TCP连接是非常昂贵的开销，如果遇到使用高峰，性能瓶颈也会随之显现。RabbitMQ采用类似NIO的做法，选择TCP连接复用，不仅可以减少性能开销，同时也便于管理。      
+&nbsp;&nbsp;每个线程把持一个信道，所以信道复用了Connection的TCP连接。同时RabbitMQ可以确保每个线程的私密性，就像拥有独立的连接一样。当每个信道的流量不是很大时，复用单一的Connection可以在产生性能瓶颈的情况下有效地节省TCP连接资源。但，当信道本身的流量很大时，这时复用一个Connection就会产生性能瓶颈，进而使整体的流量被限制了。此时就需要开辟多个Connection，将这些信道均摊到这些Connection。   
+&nbsp;&nbsp;信道在AMQP中是一个很重要的概念，大多数操作都是在信道这个层面展开的。RabbitMQ相关的API和AMQP紧密相连，`channel.basicPublish`对应AMQP的`Basic.Publish`命令。     
+
+
+## AMQP    
+&nbsp;&nbsp;
