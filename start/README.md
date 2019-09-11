@@ -86,4 +86,106 @@
 
 
 ## AMQP    
-&nbsp;&nbsp;
+&nbsp;&nbsp;RabbitMQ是AMQP协议的Erlang的实现（RabbitMQ还支持STMP、MQTT等协议）。AMQP的模型架构和RabbitMQ的模型架构是一样的，生产者将消息发送给交换器，交换器和队列绑定。当生产者发送消息时所携带的RoutingKey与绑定时的BindingKey相匹配时，消息即被存入相应的队列中。消费者可以订阅相应的队列来获取消息。     
+&nbsp;&nbsp;RabbitMQ中的交换器、交换器类型、队列、绑定、路由键等都是遵循AMQP协议中的相应概念。      
+&nbsp;&nbsp;AMQP协议本身包括三层：    
+* Module Layer：位于协议最高层，主要定义了一些供客户端调用的命令，客户端可以利用这些命令实现自己的业务逻辑。如，客户端可以使用Queue.Declare命令声明一个队列或者使用Basic.Consume订阅消费一个队列中的消息。    
+* Session Layer：位于中间层，主要负责将客户端的命令发送给服务器，再将服务端的应答返回给客户端，主要为客户端与服务器之间的通信提供可靠性同步机制和错误处理。    
+* Transport Layer：位于最底层，主要传输二进制数据流，提供帧的处理、信道的复用、错误的检测和数据的表示等。      
+&nbsp;&nbsp;AMQP说到底还是一个通信协议，通信协议都会涉及报文交互，从low-level层面举例来说，AMQP本身是应用层的协议，其填充于TCP协议层的数据部分。而从high-level层面来说，AMQP是通过协议命令进行交互的。AMQP协议可以看作一系列结构化命令的集合，这里的命令代表一种操作，类似于HTTP中的方法（GET、POST、PUT、DELETE等）。       
+
+
+### AMQP-Producers    
+&nbsp;&nbsp;如下生产者代码片段：      
+```java
+Connection connection = factory.newConnection();
+Channel channel = connection.createChannel();
+String message = "This is test message!";
+channel.basicPublish(EXCHANGE_NAME, ROUTING_KEY, MessageProperties.PERSISTENT_TEXT_PLAIN, message.getByte());
+channel.close();
+connection.close();
+```    
+&nbsp;&nbsp;当客户端与Broker建立连接的时候，会调用`factory.newConnection`方法，这个方法会进一步封装成Protocol Header 0-9-1 的报文头 发送给Broker，以此通知Broker本次交互采用的协议是AMQP 0-9-1协议，紧接着Broker返回`Connection.Start`来建立连接，在连接的过程中涉及Connection.Start/.Start-OK、Connection.Tune/.Tune-OK、Connection.Open/.Open-OK这6个命令的交互。    
+&nbsp;&nbsp;当客户端调用`connection.createChannel`方法准备开启信道的时候，其包装Channel.Open命令发送给Broker，等待Channel.Open-OK命令。    
+&nbsp;&nbsp;当客户端发送消息的时候，需要调用`channel.basicPublish`方法，对应的AMQP命令为Basic.Publish，注意这个命令和前面涉及的命令略有不同，这个命令还包含了Content Header和Content Body。Content Header里面包含的是消息体的属性，如，投递模式、优先级等，而Content Body里面是消息本身。    
+&nbsp;&nbsp;当客户端发送完消息需要关闭资源时，涉及Channel.Close/.Close-Ok与Connection.Close/.Close-Ok的命令交互。    
+
+
+### AMQP-Consumers    
+&nbsp;&nbsp;如下消费者代码片段：    
+```java
+Connection connection = factory.newConnection();
+Channel channel = connection.createChannel();
+Consumer consumer = new DefaultConsumer(channel){}//...
+channel.basicQos(64);
+channel.basicConsume(QUEUE_NAME, consumer);
+TimeUnit.SECONDS.sleep(5);
+channel.close();
+connection.close();
+```    
+&nbsp;&nbsp;消费者客户端同样需要与Broker建立连接，与生产者客户端一样，协议交互同样涉及Connection.Start/.Start-Ok、Connection.Tune/.Tune-Ok和Connection.Open/.Open-Ok等。    
+&nbsp;&nbsp;紧接着也少不了在Connection上建立Channel，和生产者客户端一样，协议涉及Channel.Open/.Open-Ok。    
+&nbsp;&nbsp;如果在消费之前调用了channel.basicQos(int prefetchCount)的方法来设置消费者客户端最大能“保持”的未确认的消息个数（即预取个数），那么协议会涉及Basic.Qos/.Qos-Ok这两个AMQP命令。    
+&nbsp;&nbsp;在真正消费之前，消费者客户端需要向Broker发送Basic.Consumer命令（即调用channel.basicConsumer方法）将Channel置为接收模式，之后Broker回执Basic.Consume-Ok以告诉消费者客户端准备好消费消息。紧接着Broker向消费者客户端推送（Push）消息，即Basic.Deliver命令，这个命令和Basic.Publish一样会携带Content Header和Content Body。    
+&nbsp;&nbsp;消费者接收到消息并正确消费之后，向Broker发送确认 ，即Basic.Ack命令。    
+&nbsp;&nbsp;在消费者停止消费的时候，主动关闭连接，这点和生产者一样，涉及Channel.Close/.Close-Ok和Connection.Close/.Close-Ok。    
+
+## AMQP-Command    
+&nbsp;&nbsp;AMQP 0-9-1协议中的命令远远不止前面所提的，下面给出AMQP命令列表。     
+   
+| 名称 | 是否包含内容体 | 对应客户端中的方法 | 简要描述 |     
+|---|---|---|---    
+| Connection.Start | 否 | factory.newConnection | 建立连接相关    
+| Connection.Start-Ok | 否 | 同上 | 同上    
+| Connection.Tune | 否 | 同上 | 同上    
+| Connection.Tune-Ok | 否 | 同上 | 同上    
+| Connection.Open | 否 | 同上 | 同上    
+| Connection.Open-Ok | 否 | 同上 | 同上    
+| Connection.Close | 否 | connection.close | 关闭连接    
+| Connection.Close-Ok | 否 | 同上 | 同上    
+| Channel.Open | 否 | connection.openChannel | 开启信道    
+| Channel.Open-Ok | 否 | 同上 | 同上    
+| Channel.Close | 否 | channel.close | 关闭信道    
+| Channel.Close-Ok | 否 | 同上 | 同上    
+| Exchange.Declare | 否 | channel.exchangeDeclare | 声明交换器    
+| Exchange.Declare-Ok | 否 | 同上 | 同上    
+| Exchange.Delete | 否 | channel.exchangeDelete | 删除交换器    
+| Exchange.Delete-Ok | 否 | 同上 | 同上    
+| Exchange.Bind | 否 | channel.exchangeBind | 交换器与交换器绑定    
+| Exchange.Bind-Ok | 否 | 同上 | 同上    
+| Exchange.Unbind | 否 | channel.exchangeUnbind | 交换器与交换器解绑    
+| Exchange.Unbind-Ok | 否 | 同上 | 同上    
+| Queue.Declare | 否 | channel.queueDeclare | 声明队列    
+| Queue.Declare-Ok | 否 | 同上 | 同上    
+| Queue.Bind | 否 | channel.queueBind | 队列与交换器绑定    
+| Queue.Bind-Ok | 否 | 同上 | 同上    
+| Queue.Purge | 否 | channel.queuePurge | 清除队列中的内容     
+| Queue.Purge-Ok | 否 | 同上 | 同上    
+| Queue.Delete | 否 | channel.queueDelete | 删除队列    
+| Queue.Delete-Ok | 否 | 同上 | 同上     
+| Queue.Unbind | 否 | channel.queueUnbind | 队列与交换器解绑     
+| Queue.Unbind-Ok | 否 | 同上 | 同上       
+| Basic.Qos | 否 | channel.basicQos | 设置未被确认消费的个数    
+| Basic.Qos-Ok | 否 | 同上 | 同上    
+| Basic.Consume | 否 | channel.basicConsume | 消费消息（推模式）    
+| Basic.Consume-Ok | 否 | 同上 | 同上     
+| Basic.Cancel | 否 | channel.basicCancel | 取消     
+| Basic.Cancel-Ok | 否 | 同上 | 同上    
+| Basic.Publish | 是 | channel.basicPublish | 发送消息  
+| Basic.Return | 是 | 无 | 未能成功路由的消息返回    
+| Basic.Deliver | 是 | 无 | Broker推送消息    
+| Basic.Get | 否 | channel.basicGet | 消费消息（拉模式）   
+| Basic.Get-OK | 是 | 同上 | 同上     
+| Basic.Ack | 否 | channel.basicAck | 确认    
+| Basic.Reject | 否 | channel.basicReject | 拒绝（单条拒绝）    
+| Basic.Recover | 否 | channel.basicRecover | 请求Broker重新发送未被确认的消息    
+| Basic.Recover-Ok | 否 | 同上 | 同上    
+| Basic.Nack | 否 | channel.basicNack | 拒绝（可批量拒绝）    
+| Tx.Select | 否 | channel.txSelect | 开启事务    
+| Tx.Select-Ok | 否 | 同上 | 同上    
+| Tx.Commit | 否 | channel.txCommit | 事务提交    
+| Tx.Commit-Ok | 否 | 同上 | 同上     
+| Tx.Rollback | 否 | channel.txRollback | 事务回滚     
+| Tx.Rollback-Ok | 否 | 同上 | 同上      
+| Confirm.Select | 否 | channel.confirmSelect | 开启发送端确认模式    
+| Confirm.Select-Ok | 否 | 同上 | 同上    
