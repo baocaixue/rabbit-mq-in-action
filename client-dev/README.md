@@ -273,4 +273,11 @@ channel.basicConsume(queueName, autoAck, "myConsumerTag",
 
 
 ### Pull-Message    
+&nbsp;&nbsp;对于拉模式的消费方式。通过channel.basicGet方法可以单条地获取消息，其返回值是GetResponse。Channel类的basicGet方法没有重载方法，只有：    
+`GetResponse basicGet(String queue, boolean autoAck) throws IOException;`    
+&nbsp;&nbsp;注意要点:    
+&nbsp;&nbsp;Basic.Consume将信道（Channel）置为投递模式，知道取消队列的订阅为止。在投递模式期间，RabbitMQ会不断地推送消息给消费者，当然推送消息到个数还是会受到Basic.Qos的限制。如果只想从队列中获取单条消息而不是持续订阅，建议还是使用Basic.Get进行消费。但不能将Basic.Get放在循环里代替Basic.Consume，这样会严重影响RabbitMQ性能。这种情况下要实现高吞吐量，还是要使用Basic.Consume方法。    
+
+
+## Message-Ack    
 &nbsp;&nbsp;

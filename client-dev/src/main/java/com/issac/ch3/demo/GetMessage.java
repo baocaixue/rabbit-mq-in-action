@@ -15,6 +15,22 @@ public class GetMessage {
         Channel channel = connection.createChannel();
 
         channel.basicQos(64);
+//        pushMessage(channel);
+        pullMessage(channel);
+
+        //wait call back
+        TimeUnit.SECONDS.sleep(5);
+        channel.close();
+        connection.close();
+    }
+
+    private static void pullMessage(Channel channel) throws Exception{
+        GetResponse response = channel.basicGet("testQueue", false);
+        System.out.println(new String(response.getBody()));
+        channel.basicAck(response.getEnvelope().getDeliveryTag(), false);
+    }
+
+    private static void pushMessage(Channel channel) throws Exception {
         channel.basicConsume("testQueue",false, "testConsumerTag",  new DefaultConsumer(channel){
             @Override
             public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
@@ -27,10 +43,5 @@ public class GetMessage {
                 channel.basicAck(envelope.getDeliveryTag(),false);
             }
         });
-
-        //wait call back
-        TimeUnit.SECONDS.sleep(5);
-        channel.close();
-        connection.close();
     }
 }
