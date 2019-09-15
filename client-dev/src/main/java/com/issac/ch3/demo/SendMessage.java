@@ -14,7 +14,7 @@ public class SendMessage {
         Channel channel = connection.createChannel();
 
         channel.exchangeDeclare("testExchange", "direct", true, false, false, null);
-        channel.queueDeclare("testQueue", true, false, true, null);
+        channel.queueDeclare("testQueue", true, false, false, null);
         channel.queueBind("testQueue", "testExchange", "testRoutingKey");
 
 //        publishSetProperties(channel);

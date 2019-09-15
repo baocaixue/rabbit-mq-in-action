@@ -15,7 +15,7 @@ public class GetMessage {
         Channel channel = connection.createChannel();
 
         channel.basicQos(64);
-        channel.basicConsume("testQueue", new DefaultConsumer(channel){
+        channel.basicConsume("testQueue",false, "testConsumerTag",  new DefaultConsumer(channel){
             @Override
             public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
                 System.out.println("Get Message: " + new String(body));

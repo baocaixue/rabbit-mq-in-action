@@ -147,5 +147,130 @@ void exchangeDeclareNoWait(
 `Queue.PurgeOk queuePurge(String queue) throws IOException;`    
 
 ### queueBind    
+&nbsp;&nbsp;将队列与交换器绑定的方法如下：    
+（1） `Queue.BindOk queueBind(String queue, String exchange, String routingKey) throws IOException;`    
+（2） `Queue.BindOk queueBind(String queue, String exchange, String routingKey, Map<String, Object> arguments) throws IOException;`    
+（3） `void queueBindNoWait(String queue, String exchange, String routingKey, Map<String, Object> arguments) throws IOException;`    
+&nbsp;&nbsp;方法中涉及的参数详解：    
+* queue: 队列名称    
+* exchange: 交换器名称    
+* routingKey: 用来绑定队列和交换器的路由键    
+* arguments: 定义绑定的一些参数    
+&nbsp;&nbsp;队列和交换器解绑：    
+（1） `Queue.UnbindOk queueUnbind(String queue, String exchange, String routingKey) throws IOException;`    
+（2） `Queue.UnbindOk queueUnbind(String queue, String exchange, String routingKey, Map<String, Object> arguments) throws IOException;`    
 
-   
+### exchangeBind    
+&nbsp;&nbsp;不仅可以将交换器与队列绑定，也可以将交换器与交换器绑定，相应方法如下：    
+（1） `Exchange.BindOk exchangeBind(String destination, String source, String routingKey) throws IOException;`     
+（2） `Exchange.BindOk exchangeBind(String destination, String source, String routingkey, Map<String, Object> arguments) throws IOException;`    
+（3） `void exchangeBindNoWait(String destination, String source, String routingKey, Map<String, Object> arguments) throws IOException;`    
+&nbsp;&nbsp;绑定之后，**消息从source交换器转发到destination交换器**，某种程度上来说destination交换器可以看作一个队列。    
+
+
+## When-Create    
+
+
+
+## Send-Message    
+&nbsp;&nbsp;如果要发送一个消息，可以使用Channel类的basicPublish方法，比如发送一条内容为”Hello World!“的消息，参考如下：    
+```java
+byte[] messageBodyBytes = "Hello World!".getBytes();
+channel.basicPublish(exchangeName, routingKey, null, messageBodyBytes);
+```    
+&nbsp;&nbsp;为了更好控制发送，可以使用mandatory这个参数，或者发送一些特定的属性信息：    
+`channel.basicPublish(exchangeName, routingKey, mandatory, MessageProperties.PERSISTENT_TEXT_PLAIN, messageBodyBytes);`    
+
+&nbsp;&nbsp;上面这行代码发送了一条消息，这条消息的投递模式（delivery mode）设置为2，即消息会被持久化（存入磁盘）在服务器中。同时这条消息的优先级（priority）设置为0，content-type为”text/plain“。也可以自己设定消息的属性：    
+```java
+channel.basicPublish(
+    exchangeName,
+    routingKey,
+    new AMQP.BasicProperties.Builder().contentType("text/plain").deliveryMode(2).priority(1).userId("hidden").build(),
+    messageBodyButes
+);
+```    
+&nbsp;&nbsp;也可以发送一条带有headers的消息：    
+```java
+Map<String, Object> headers = new HashMap<>();
+headers.put("location", "here");
+header.put("time", "today");
+channel.basicPublish(
+        exchangeName,
+        routingKey,
+        new AMQP.BasicProperties.Builder().headers(headers).build(),
+        messageBodyBytes
+);
+```    
+&nbsp;&nbsp;还可以发送一条带有过期时间（expiration）的消息：    
+```java
+channel.basicPublish(
+        exchangeName,
+        routingKey,
+        new AMQP.BasicProperties.Builder().expiration("60000").build(),
+        messageBodyBytes
+);
+```    
+&nbsp;&nbsp;对于basicPublish而言，有几个重载的方法：    
+（1） `void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body) throws IOException;`    
+（2） `void basicPublish(String exchange, String routingKey, boolean mandatory, BasicProperties props, byte[] body) throws IOException;`    
+（3） `void basicPublish(String exchange, String routingKey, boolean mandatory, boolean immediate, BasicProperties props, byte[] body) throws IOException;`    
+&nbsp;&nbsp;对应具体参数解释如下：    
+* exchange: 交换器的名称，指明消息要发送到哪个交换器中。如果设置为空字符串，则消息会被发送到RabbitMQ默认的交换器中    
+* routingKey: 路由键，交换器根据路由键将消息存储到相应的队列中    
+* props: 消息的基本属性集，其包含14个属性成员，分别有contentType、contentEncoding、headers、deliveryMode、priority、correlationId、replyTo、expiration、messageId、timestamp、type、userId、appId、clusterId    
+* body: 消息体（payload），真正需要发送的消息    
+* mandatory和immediate的详细内容请参考[4.1](../advance/README.md)    
+
+## Consume-Message    
+&nbsp;&nbsp;RabbitMQ的消费模式分为两种：推（Push）模式和拉（Pull）模式。推模式采用Basic.Consume进行消费，而拉模式则是调用Basic.Get进行消费。    
+
+### Push-Message    
+&nbsp;&nbsp;在推模式中，可以通过持续订阅的方式来消费消息，使用到的相关类有`com.rabbitmq.client.Consumer`、`com.rabbitmq.client.DefaultConsumer`。    
+&nbsp;&nbsp;接收消息一般通过实现Consumer接口或继承DefaultConsumer类来实现。当调用与Consumer相关的API方法时，不同的订阅采用不同的消费者标签（consumerTag）来区分彼此，在同一个Channel中的消费者也需要通过唯一的消费者标签以作区分，代码如下：    
+```java
+boolean autoAck = false;
+channel.basicQos(64);
+channel.basicConsume(queueName, autoAck, "myConsumerTag",
+    new DefaultConsumer(channel){
+        @Override
+        public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException{
+            String routingKey = envelope.getRoutingKey();
+            String contentType = properties.getContentType();
+            long deliveryTag = envelope.getDeliveryTag();
+            //process the message components here ...
+            channel.basicAck(deliveryTag, false);
+        }
+    }
+);
+```   
+&nbsp;&nbsp;注意，上面代码中显式地设置autoAck为false，然后在接收到消息之后进行显式ack操作（channel.basicAck），对于消费者来说做这个设置是非常必要的，可以防止消息不必要的丢失。    
+
+&nbsp;&nbsp;Channel类中basicConsume方法有如下几种形式：    
+（1） `String basicConsume(Stirng queue, Consumer callback) throws IOException;`    
+（2） `String basicConsume(String queue, boolean autoAck, Consumer callback) throws IOException;`    
+（3） `String basicConsume(String queue, boolean autoAck, Map<String, Object> arguments, Consumer callback) throws IOException;`    
+（4） `String basicConsume(String queue, boolean autoAck, String consumerTag, Consumer callback) throws IOException;`    
+（5） `String basicConsume(String queue, boolean autoAck, String consumerTag, boolean noLocal, boolean exclusive, Map<String, Object> arguments, Consumer callback) throws IOException;`    
+&nbsp;&nbsp;对应的参数说明如下所述：    
+* queue: 队列名称   
+* autoAck: 设置是否自动确认，建议设成false，不自动确认
+* consumerTag: 消费者标签，用来区分多个消费者
+* noLocal: 设置为true则表示不能将同一个Connection中生产者发送的消息传递给这个Connection中的消费者
+* exclusive: 设置是否排他
+* arguments: 设置消费者其他参数
+* callback: 设置消费者回调函数。用来处理RabbitMQ推送过来的消息，比如DefaultConsumer，使用时需要客户端重写其中的方法    
+
+&nbsp;&nbsp;对于消费者客户端来说，重写handleDelivery方法是十分方便的。更复杂的消费者客户端会重写更多的方法，具体如下：    
+`void handleConsumerOk(Stirng consumerTag);`    
+`void handleCancelOk(String consumerTag);`    
+`void handleCancel(String consumerTag) throws IOException;`    
+`void handleShutdownSignal(String consumerTag, ShutdownSignalException sig);`    
+`void handleRecoverOk(String consumerTag);`    
+
+&nbsp;&nbsp;比如handleShutdownSignal方法，当Channel或者Connection关闭的时候会调用。再者，handleConsumeOk方法会在其他方法之前调用，返回消费者标签。    
+&nbsp;&nbsp;重写handleCancelOk方法和handleCancel方法，这样消费端可以在显式地或者隐式地取消订阅的时候调用。也可以通过channel.basicCancel方法来显式地取消一个消费者的订阅：`channel.basicCancel(consumerTag)`    
+
+
+### Pull-Message    
+&nbsp;&nbsp;
