@@ -12,3 +12,4 @@ rootProject.name = 'rabbit-mq-in-action'
 include 'introduction'//简介
 include 'start'//RabbitMQ入门
 include 'client-dev'//客户端开发向导
+include 'advance'//RabbitMQ进阶
