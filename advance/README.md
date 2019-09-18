@@ -59,4 +59,12 @@ channel.basicPublish("testExchange", "noSuchRoutingKey", true, MessageProperties
 ### Alternate-Exchange    
 &nbsp;&nbsp;备份交换器（AE）。生产者在发送消息的时候如果不设置mandatory参数，那么消息在未被路由的情况下将会丢失；如果设置了mandatory参数，那么需要添加ReturnListener编程逻辑，生产者的代码变得更加复杂了。这时候，可以使用备份交换器，这样可以将未被路由到队列的消息存储在RabbitMQ中，等到有需要的时候再去处理这些消息。    
 &nbsp;&nbsp;可以通过在声明交换器（调用channel.exchangeDeclare方法）的时候添加alternate-exchange参数来实现，也可以通过策略的方式实现。如果两者同时使用，前者的优先级更高，会覆盖掉策略的设置。    
-&nbsp;&nbsp;使用参数[示例](./src/main/java/com/isaac/ch4/AlternateExchangeDemo.java)
+&nbsp;&nbsp;使用参数[示例](./src/main/java/com/isaac/ch4/AlternateExchangeDemo.java)    
+&nbsp;&nbsp;如果采用Policy的方式来设置备份交换器，可以参考如下：    
+`rabbitmqctl set_policy AE "^targetExchange$" '{"alternate-exchange":"backUpExchange"}'`    
+&nbsp;&nbsp;备份交换器和普通的交换器没有太大区别，为了避免消息在备份时还是丢失，建议设置备份交换器的类型为fanout。对于备份交换器，总结了以下几种特殊情况：    
+* 如果设置的备份交换器不存在，客户端和RabbitMQ服务端都不会有异常，此时消息会丢失    
+* 如果备份交换器没有绑定队列（或没有任何匹配的队列），客户端和RabbitMQ服务端都不会有异常，此时消息会丢失    
+* 如果备份交换器和mandatory参数一起使用，mandatory参数无效    
+
+
