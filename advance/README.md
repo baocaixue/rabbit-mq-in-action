@@ -68,3 +68,45 @@ channel.basicPublish("testExchange", "noSuchRoutingKey", true, MessageProperties
 * 如果备份交换器和mandatory参数一起使用，mandatory参数无效    
 
 
+## TTL    
+&nbsp;&nbsp;TTL，Time to Live的简称，即过期时间。RabbitMQ可以对消息和队列设置TTL。    
+
+
+### Message-TTL    
+&nbsp;&nbsp;目前有两种方法可以设置消息的TTL。第一种方法是通过设置队列的属性设置，队列中的所有消息都有相同的过期时间。第二种方法是对消息本身进行单独设置，每条消息的TTL可以不同。如果两种方法一起使用，则消息的TTL以两者之间较小的数值为准。消息在队列中的生存时间一旦超过设置的TTL值时，就会变成”死信“（Dead Message），消费者将无法再收到该消息（不是绝对）。    
+
+&nbsp;&nbsp;通过队列属性设置消息TTL的方法是在channel.queueDeclare方法中加入x-message-ttl参数实现的，这个参数的单位是毫秒。如下所示：    
+```java
+Map<String, Object> args = new HashMap<>();
+args.put("x-message-ttl", 6000);
+channel.queueDeclare(queue, durable, exclusive, autoDelete, args);
+```    
+&nbsp;&nbsp;同时也可以通过Policy的方式来设置TTL，如下：    
+`rabbitmqctl set_policy TTL ".*" '{"message-ttl":6000}' --apply-to queues`    
+&nbsp;&nbsp;还可以用HTTP API接口设置：    
+```shell 
+    $curl -i -u root:root -H "content-type:application/json" -X PUT -d '{"auto_delete":false,"durable":true,"arguments":{"x-message-ttl":6000}}'
+    http://localhost:15672/api/queues/{vhost}/{queuename}
+```    
+
+&nbsp;&nbsp;如果不设置TTL，则表示此消息不会过期；如果将TTL设置为0，则表示除非此时可以直接将消息投递到消费者，否则该消息会被立即丢弃，这个特性可以部分代替RabbitMQ3.0之前的immediate参数，而immediate参数在投递失败Basic.Return给生产者的功能可以用死信队列来替代。    
+
+&nbsp;&nbsp;而对于每条消息设置TTL，可以使用channel.basicPublish方法，在属性中加入expiration的属性参数：    
+```java
+AMQP.BasicProperties.Builder builder = new AMQP.BasicProperties.Builder();
+AMQP.BasicProperties properties = builder.deliveryMode(2).expiration("6000").build();
+channel.basicPublish("testExchange","testRoutingKey", properties, "this is a ddl message!".getBytes());
+```    
+
+&nbsp;&nbsp;HTTP API接口设置：    
+```shell
+$ curl -i -u root:root -H "content-type:application/json" -X POST -d '{"properties":{"expiration":"60000"},"routing_key":"routingkey","payload":"my body","payload_encoding":"string"}'
+http://localhost:15672/api/exchanges/{vhost}/{exchangename}/publish
+```    
+
+### Queue-TTL    
+&nbsp;&nbsp;通过channel.queueDeclare方法中的**x-expires**参数可以控制队列被自动删除前处于未使用状态的时间。未使用的意思是队列上没有任何消费者，队列也没有被重新声明，并且在过期时间段内没有调用过Basic.Get命令。RabbitMQ重启时间会重新计算。     
+
+
+
+## Dead-Queue
