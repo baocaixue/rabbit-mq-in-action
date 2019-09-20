@@ -1,8 +1,6 @@
 # RabbitMQ实战笔记  
 [![Build Status](https://travis-ci.org/baocaixue/rabbit-mq-in-action.svg?branch=master)](https://travis-ci.org/baocaixue/rabbit-mq-in-action)    
 
-声明:本repository的所有示例及说明都是根据《RabbitMQ实战指南》——朱忠华 著。只为加深理解及日后查阅。
-
 ***
 
 # 目录
