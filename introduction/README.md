@@ -68,7 +68,14 @@ firewall-cmd --zone=public --add-port=15672/tcp --permanent
 firewall-cmd --reload
 ```   
 管理页面插件：  
-`rabbitmq-plugins enable rabbitmq_management`
+`rabbitmq-plugins enable rabbitmq_management`     
+
+设置用户：    
+```
+sudo rabbitmqctl add_user isaac 123456
+sudo rabbitmqctl set_user_tags isaac administrator
+sudo rabbitmqctl  set_permissions -p / isaac '.*' '.*' '.*'
+```
 
 ### Produce-Consume-Message
 
