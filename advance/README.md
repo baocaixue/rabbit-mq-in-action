@@ -130,5 +130,25 @@ chanel.queueDeclare("myQueu", false, fasle, false, args);
 　　对于RabbitMQ来说，DLX是个非常有用的特性。它可以处理异常情况下，消息不能够被消费者正确消费（消费者调用了Basic.Nack或Basic.Reject）而被置入死信队列中的情况，后续分析程序可以通过消费这个死信队列中的内容来分析当时所遇到的异常情况，进而可以改善和优化系统。DLX配合TTL还可以实现延迟队列的功能。    
 
 
+## Delay-Queue    
+　　延迟队列存储的对象是对应的延迟消息，所谓的“延迟消息”是指当消息被发送以后，并不想让消费者立刻拿到消息，而是等待特定的时间后，消费者才能拿到这个消息进行消费。    
+　　在AMQP协议中，或者RabbitMQ本身没有直接支持延迟队列的功能，但是可以通过前面所介绍的DLX和TTL模拟出延迟队列的功能。[示例](./src/main/java/com/isaac/ch4/DLXDemo.java)    
+　　
+## Priority-Queue    
+　　优先级队列，具有高优先级的消息具备优先被消费的特权。    
+　　可以设置队列的**x-max-priority**参数来配置一个队列的最大优先级：    
+```java
+Map<String, Object> args = new HashMap<>();
+args.put("x-max-priority", 10);
+channel.queueDeclare("queue", true, false, false, args);
+```    
+　　发送消息时设置当前消息优先级：    
+```java
+AMQP.BasicProperties.Builder builder = new AMQP.BasicProperties.Builder();
+builder.priority(5);
+AMQP.BasicProperties properties = builder.build();
+channel.basicPublish("exchange", "routingKey", properties, "test".getBytes());
+```    
+　　如果在消费者的消费速度大于生产者的速度且Broker中没有消息堆积的情况下，对发送的消息设置优先级就没有多大意义了。    
 
 

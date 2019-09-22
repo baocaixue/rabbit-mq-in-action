@@ -3,6 +3,7 @@
   - x-message-ttl : 6000 # channel.queueDeclare队列中所有消息过期参数
   - x-expires : 6000 #队列过期参数
   - x-dead-letter-exchange : "DLX" # 为队列添加死信交换器
+  - x-max-priority : 10 #设置一个队列的最大优先级
 
 
 - exchange
