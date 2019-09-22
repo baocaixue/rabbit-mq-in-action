@@ -5,7 +5,7 @@ import com.rabbitmq.client.*;
 import java.util.HashMap;
 
 public class SendMessage {
-    private static final String URI = "amqp://isaac:123456@192.168.1.100:5672";
+    private static final String URI = "amqp://isaac:123456@127.0.0.1:5672";
 
     public static void main(String[] args) throws Exception {
         ConnectionFactory factory = new ConnectionFactory();

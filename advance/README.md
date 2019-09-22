@@ -6,7 +6,7 @@
 - 过期时间...................................................[2](#TTL)
     - 设置消息的TTL...................................................[2.1](#Message-TTL)   
     - 设置队列的TTL...................................................[2.2](#Queue-TTL)    
-- 死信队列...................................................[3](#DLX)   
+- 死信交换器...................................................[3](#DLX)   
 - 延迟队列...................................................[4](#Delay-Queue)    
 - 优先级队列...................................................[5](#Priority-Queue)    
 - RPC实现...................................................[6](#RPC)
@@ -110,4 +110,25 @@ http://localhost:15672/api/exchanges/{vhost}/{exchangename}/publish
 
 
 ## DLX    
+　　死信交换器（DLX），全称为Dead-Letter-Exchange，又称死信邮箱。当消息在一个队列中变成死信之后，它能被重新发送到另一个交换器中，这个交换器就是DLX，绑定DLX的队列就称之为死信对列。    
+　　消息变成死信一般是由以下几种情况：    
+* 消息被拒绝（Basic.Reject/Basic.Nack），并设置requeue参数为false 
+* 消息过期
+* 队列达到最大长度
+
+　　DLX也是一个正常的交换器，和一般的交换器没有区别，它能在任何队列上被指定，实际上就是设置某个队列的属性。当这个队列中存在死信时，RabbitMQ就会自动地将这个消息重新发布到DLX上去，进而被路由到另一个队列，即死信对列。可以监听这个队列中的消息以进行相应的处理，这个特性与消息的TTL设置为0配合使用可以弥补immediate参数的功能。    
+　　通过在channel.queueDeclare方法中设置**x-dead-letter-exchange**参数来为这个队列添加DLX（[示例](./src/main/java/com/isaac/ch4/DLXDemo.java)）：    
+```java
+channel.exchangeDeclare("dlxExchange", "direct");
+Map<String, Object> args = new HashMap<>();
+args.put("x-dead-letter-exchange", "dlxExchange");
+chanel.queueDeclare("myQueu", false, fasle, false, args);
+```    
+　　也可以通过Policy的方式：    
+`rabbitmqctl set_policy DLX ".*" '{"dead-letter-exchange":"dlxExchange"}' --apply-to queues`     
+
+　　对于RabbitMQ来说，DLX是个非常有用的特性。它可以处理异常情况下，消息不能够被消费者正确消费（消费者调用了Basic.Nack或Basic.Reject）而被置入死信队列中的情况，后续分析程序可以通过消费这个死信队列中的内容来分析当时所遇到的异常情况，进而可以改善和优化系统。DLX配合TTL还可以实现延迟队列的功能。    
+
+
+
 

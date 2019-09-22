@@ -6,7 +6,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class TTLDemo {
-    private static final String URI = "amqp://isaac:123456@192.168.1.103";
+    private static final String URI = "amqp://isaac:123456@127.0.0.1:5672";
 
     public static void main(String[] args) throws Exception{
         ConnectionFactory factory = new ConnectionFactory();
