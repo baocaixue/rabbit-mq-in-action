@@ -152,3 +152,15 @@ channel.basicPublish("exchange", "routingKey", properties, "test".getBytes());
 　　如果在消费者的消费速度大于生产者的速度且Broker中没有消息堆积的情况下，对发送的消息设置优先级就没有多大意义了。    
 
 
+## RPC    
+　　RPC，是Remote Procedure Call的简称，即远程调用。它是一种通过网络从远程计算机上请求服务，而不需要了解底层网络的技术。RPC的主要功能是让构建分布式计算更容易，在提供强大的远程调用能力时不损失本地调用的语义简介性。    
+　　RPC的协议有很多，比如最早的CORBA、Java RMI、WebService的RPC风格、Hessian、Thrift甚至还有Restful API。
+　　一般在RabbitMQ中进行RPC是很简单的。客户端发送请求消息，服务端回复响应的消息，为了接受响应的消息，需要在请求消息中发送一个回调队列：    
+```java
+String callbackQueueName = channel.queueDeclare().getQueue();
+BasicProperties props = new BasicProperties.Builder().replyTo(callbackQueueName).build();
+channel.basicPublish("", "rpc_queue", props, message.getBytes());
+//then code to read a response message from the callback_queue
+```    
+　　RPC演示代码[参见](./src/main/java/com/isaac/ch4/rpc)    
+
