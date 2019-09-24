@@ -162,5 +162,8 @@ BasicProperties props = new BasicProperties.Builder().replyTo(callbackQueueName)
 channel.basicPublish("", "rpc_queue", props, message.getBytes());
 //then code to read a response message from the callback_queue
 ```    
-　　RPC演示代码[参见](./src/main/java/com/isaac/ch4/rpc)    
+　`The default exchange is implicitly bound to every queue, with a routing key equal to the queue name. It is not possible to explicitly bind to, or unbind from the default exchange. It also cannot be deleted.`       
+
+  RabbitMQ默认交换器，绑定了所有队列，routingKey是队列名     
+  RPC演示代码[参见](./src/main/java/com/isaac/ch4/rpc)    
 
