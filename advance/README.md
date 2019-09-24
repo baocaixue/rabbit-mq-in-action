@@ -167,3 +167,22 @@ channel.basicPublish("", "rpc_queue", props, message.getBytes());
   RabbitMQ默认交换器，绑定了所有队列，routingKey是队列名     
   RPC演示代码[参见](./src/main/java/com/isaac/ch4/rpc)    
 
+
+## Persistence    
+　　持久化可以提高RabbitMQ的可靠性，以防在异常情况下（重启、关闭、宕机等）的数据丢失。RabbitMQ的持久化分为三个部分：交换器的持久化、队列的持久化和消息的持久化。    
+　　交换器的持久化是通过声明交换器时将durable参数置为true实现的。如果交换器不设置持久化，那么在RabbitMQ服务重启之后，相关的交换器元数据会丢失，不过消息不会丢失，只是不能将消息发送到这个交换器中了。对一个长期使用的交换器来说，建议将其置为持久化的。    
+　　队列的持久化是通过在声明队列时将durable参数置为true实现的。如果队列不设置持久化，那么在RabbitMQ服务重启之后，相关队列的元数据会丢失，此时数据也会丢失。    
+　　队列的持久化能保证其本身的元数据不会因为异常而丢失，但是并不能保证内部所存储的消息不会丢失。要确保消息不会丢失，需要将其设置为持久化。通过将消息的投递模式（BasicProperties中deliveryMode属性）设置为2即可实现消息的持久化。MessageProperties.PERSISTENT_TEXT_PLAIN史记上封装了这个属性:     
+```java
+public static final BasicProperties PERSISTENT_TEXT_PLAIN = 
+    new BasicProperties("text/plain",
+                       null,
+                       null,
+                       2,//deliveryMode
+                       0, null, null, null,
+                       null, null, null, null,
+                       null, null);
+```    
+
+　　**注意要点：** 将消息设置为持久化，会影响RabbitMQ的性能。在选择是否将消息设置为持久化时，需要在可靠性和吞吐量之间做一个权衡。    
+
