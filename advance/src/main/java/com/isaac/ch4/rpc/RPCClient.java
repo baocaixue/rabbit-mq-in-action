@@ -22,7 +22,7 @@ public class RPCClient {
 
         replyQueueName = channel.queueDeclare().getQueue();
         consumer = new QueueingConsumer(channel);
-        channel.basicConsume(replyQueueName, true, consumer);
+        channel.basicConsume(replyQueueName, false, consumer);
     }
 
     public String call(String message) throws Exception {
@@ -39,6 +39,7 @@ public class RPCClient {
             QueueingConsumer.Delivery delivery = consumer.nextDelivery();
             if(delivery.getProperties().getCorrelationId().equals(corrId)){
                 response = new String(delivery.getBody());
+                channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
                 break;
             }
         }
