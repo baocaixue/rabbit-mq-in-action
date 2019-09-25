@@ -1,12 +1,12 @@
 package com.isaac.ch4.rpc;
 
+import com.isaac.ch4.RabbitMqInfo;
 import com.rabbitmq.client.*;
 
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 public class RPCClient {
-    private static final String URI = "amqp://isaac:123456@127.0.0.1:5672";
     private static final String RPC_QUEUE_NAME = "rpcQueue";
 
     private Connection connection;
@@ -16,7 +16,7 @@ public class RPCClient {
 
     public RPCClient() throws Exception{
         ConnectionFactory factory = new ConnectionFactory();
-        factory.setUri(URI);
+        factory.setUri(RabbitMqInfo.URI);
         connection = factory.newConnection();
         channel = connection.createChannel();
 

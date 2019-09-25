@@ -186,3 +186,19 @@ public static final BasicProperties PERSISTENT_TEXT_PLAIN =
 
 　　**注意要点：** 将消息设置为持久化，会影响RabbitMQ的性能。在选择是否将消息设置为持久化时，需要在可靠性和吞吐量之间做一个权衡。    
 
+## Confirm    
+　　在使用RabbitMQ的时候，可以通过消息持久化操作来解决因为服务器的异常崩溃而导致的消息丢失，除此之外，还会遇到一个问题，当消息的生产者将消息发送出去之后，消息到底有没有正确的到达服务器？如果不进行特殊的配置，默认情况下发送消息的操作是不会返回任何信息给生产者的。RabbitMQ针对这个问题提供了两种解决方式：    
+* 通过🦐🦐事务机制实现
+* 通过发送方确认（publish confirm）机制实现    
+
+
+### Transaction    
+　　RabbitMQ客户端中与事务机制相关的方法有三个：**channel.txSelect**，**channel.txCommit**和**channel.txRollback**。    
+　　事务机制很费RabbitMQ性能。（PS：这里我完全不知道，为什么生产者还有所谓的事务回滚？？？）    
+
+### Publisher-Confirm    
+　　这里引入一种轻量级的方式——发送方确认（publisher confirm）机制。    
+　　生产者将信道摄制成confirm（确认）模式，一旦信道进入confirm模式，所有在该信道上发布的消息都会被指派一个唯一的ID（从1开始），一旦消息被投递到所有匹配的队列之后，RabbitMQ就会发送一个确认（Basic.Ack）给生产者（包含消息的唯一ID），这就使得生产者知晓消息已经正确的到达目的地了。如果消息和队列是持久化的，那么确认消息会在消息写入磁盘之后发出。RabbitMQ回传给生产者的确认消息中的deliveryTag包含了确认消息的序号。    
+　　更多内容，[参见](./src/main/java/com/isaac/ch4/PublisherConfirmDemo.java)    
+
+

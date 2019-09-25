@@ -1,5 +1,6 @@
 package com.isaac.ch4.rpc;
 
+import com.isaac.ch4.RabbitMqInfo;
 import com.rabbitmq.client.*;
 
 import java.io.IOException;
@@ -10,12 +11,11 @@ import java.nio.charset.StandardCharsets;
  * 客户端通过RPC来调用服务端的方法得到相应的菲波那契值
  */
 public class RPCServer {
-    private static final String URI = "amqp://isaac:123456@127.0.0.1:5672";
     private static final String RPC_QUEUE_NAME = "rpcQueue";
 
     public static void main(String[] args) throws Exception {
         ConnectionFactory factory = new ConnectionFactory();
-        factory.setUri(URI);
+        factory.setUri(RabbitMqInfo.URI);
         Connection connection = factory.newConnection();
         Channel channel = connection.createChannel();
 

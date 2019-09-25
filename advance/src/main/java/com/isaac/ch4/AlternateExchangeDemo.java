@@ -12,11 +12,9 @@ import java.util.Map;
  * 备份交换器
  */
 public class AlternateExchangeDemo {
-    private static final String URI = "amqp://isaac:123456@127.0.0.1:5672";
-
     public static void main(String[] args) throws Exception{
         ConnectionFactory factory = new ConnectionFactory();
-        factory.setUri(URI);
+        factory.setUri(RabbitMqInfo.URI);
         Connection connection = factory.newConnection();
         Channel channel = connection.createChannel();
 
