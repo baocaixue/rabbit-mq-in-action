@@ -201,4 +201,55 @@ public static final BasicProperties PERSISTENT_TEXT_PLAIN =
 　　生产者将信道摄制成confirm（确认）模式，一旦信道进入confirm模式，所有在该信道上发布的消息都会被指派一个唯一的ID（从1开始），一旦消息被投递到所有匹配的队列之后，RabbitMQ就会发送一个确认（Basic.Ack）给生产者（包含消息的唯一ID），这就使得生产者知晓消息已经正确的到达目的地了。如果消息和队列是持久化的，那么确认消息会在消息写入磁盘之后发出。RabbitMQ回传给生产者的确认消息中的deliveryTag包含了确认消息的序号。    
 　　更多内容，[参见](./src/main/java/com/isaac/ch4/PublisherConfirmDemo.java)    
 
+## Consumer    
+　　之前介绍的消费者客户端可以通过推模式或者拉模式的方式来获取并消费消息，当消费者处理完业务逻辑之后可以手动确认消息已被接受，这样RabbitMQ才能把当前消息从队列中标记为清除。如果消费者无法处理当前消息，可以通过**channel.basicNack**或**channel.basicReject**来拒绝掉。    
+　　这里对RabbitMQ消费端来说，还有几点需要注意的：    
+* 消息分发
+* 消息顺序性
+* 弃用QueueingConsumer    
 
+### Message-Distribution    
+　　当RabbitMQ队列拥有多个消费者时，队列收到的消息将以轮询（round-robin）的分发方式发送给消费者。每条消息只会发送给订阅列表里的一个消费者。这种方式非常适合扩展，而且它是专为并发程序设计的。如果现在负载加重，那么只需要创建更多的消费者来消费处理消息即可。    
+　　很多时候轮询的分发机制也不是那么优雅。默认情况下，如果有n个消费者，那么RabbitMQ会将第m条消息分发给第m%n个消费者，RabbitMQ不管消费者是否消费并已经确认了消息。试想一下，如果某些消费者任务繁重，来不及消费那么多消息，而某些其他消费者由于某些原因很快处理完了消息，进而空闲，这样就会造成整体应用吞吐量的下降。    
+　　那么如何处理这种情况呢？这里就要用到channel.basicQos(int prefetchCount)这个方法，**该方法允许限制信道上的消费者所能保持的最大为确认消息的数量**。    
+　　**注意要点：**    
+　　Basic.Qos的使用对于拉模式的消费方式无效。    
+　　channel.basicQos有三种类型的重载方法：     
+　　（1）`void basicQos(int prefetchCount) throws IOException;`    
+　　（2）`void basicQos(int prefetchCount, boolean global) throws IOException;`    
+　　（3）`void basicQos(int prefetchSize, int prefetchCount, boolean global) throws IOException;`    
+
+　　prefetchCount为0表示没有上限。prefetchSize代表消费者所能接受未确认消息的总体大小，为0表示没有上限，单位时B。    
+　　对于一个信道来说，它可以同时消费多个队列，当设置了prefetchCount大于0时，这个信道需要和各个队列协调以确保发送的消息都没有超过所限定的prefetchCount大小的值，这样会使RabbitMQ的性能降低，尤其是这些队列分散在集群中的多个Broker节点中。RabbitMQ为了提升相关性能，在AMQP 0-9-1协议之上重新定义了global这个参数，如下：    
+
+global参数 | AMQP 0-9-1 | RabbitMQ    
+--- | --- | ---     
+false | 信道上所有的消费者都需要遵从prefetchCount的限定值 | 信道上新的消费者需要遵从prefetchCount的限定值    
+true | 当前通信链路（Connection）上所有的消费者都需要遵从prefetchCount的限定值 | 信道上所有的消费者都需要遵从prefetchCount的限定值    
+
+     
+### Message-Order    
+　　消息的顺序性是指消费者消费到的消息和发送者发布的消息顺序是一致的。    
+　　需要注意，消息的顺序性不是绝对的（从生产者事务、延时队列、优先级队列等分析）。    
+
+### Abandon-QueueingConsumer    
+　　对于QueueingConsumer这个类，RabbitMQ客户端4.x版本开始已经弃用了，原因如下：    
+* 内存溢出问题，QueueingConsumer内部使用LinkedBlockingQueue来缓存消息，会导致客户端内存溢出假死，于是恶心循环，队列消息不断堆积而得不到消化。（使用QueueingConsumer一定要用Basic.Qos控制！）
+* 会拖累同一个Connection下的所有信道，使其性能降低
+* 同步递归调用QueueingConsumer会产生死锁
+* RabbitMQ的自动连接恢复机制（automatic connection recovery）不支持QueueingConsumer的这种形式
+* QueueingConsumer不是事件驱动的    
+
+　　为了避免不必要的麻烦，建议在消费消息的时候尽量使用继承DefaultConsumer的方式。    
+
+## Message-Transmission-Guarantee    
+　　消息中间件的传输保障层级：    
+* At most once: 最多一次。消息可能会丢失，但不会重复传输
+* At least once: 最少一次。消息不会丢失，但可能会重复传输
+* Exactly once: 恰好一次。每条消息可定会被传输一次且仅传输一次（RabbitMQ本身不支持）    
+
+　　最少一次保证需要考虑以下内容：    
+* publisher confirm
+* mandatory or alternate exchange
+* durable
+* autoAck=false
