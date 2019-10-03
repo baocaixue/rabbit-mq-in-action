@@ -11,4 +11,5 @@
 ***    
 　　
 ## Multi-Tenancy-And-Permissions    
-　　每个RabbitMQ服务器都能创建虚拟的消息服务器，称之为虚拟主机（virtual host），简称vhost。每一个vhost本质上是一个独立的小型RabbitMQ服务器，拥有自己独立的队列、交换器及
+　　每个RabbitMQ服务器都能创建虚拟的消息服务器，称之为虚拟主机（virtual host），简称vhost。每一个vhost本质上是一个独立的小型RabbitMQ服
+务器，拥有自己独立的队列、交换器及绑定关系，并且它拥有自己独立的权限。
